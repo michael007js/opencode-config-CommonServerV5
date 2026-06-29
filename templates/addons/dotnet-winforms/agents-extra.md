@@ -26,12 +26,21 @@
 | M2 | 非可视化数据模型用普通类 + public Dispose()，不继承 Component | 继承 Component → 设计器容器托管异常 |
 | M3 | `switch` 新分支放 `default` 之前 | 放在 default 之后 → 永远不命中 |
 | M4 | ScaleInt/ScaleFloat 加 DPI=0 兜底（`DeviceDpi > 0 ? DeviceDpi : 96f`） | 构造函数期间 DeviceDpi=0 → 返回 0，控件不可见 |
+| M5 | 自检6项不通过不得跳过（目录/命名空间/依赖/主题/Designer/最小改动） | 跳过自检 → 约束违反 |
 
-## N. 测试规范（违反 = 测试失效或归属错误）
+## N. 文档同步扩展（违反 = 文档与代码不一致）
 
 | # | 约束 | 违反后果 |
 |---|------|---------|
-| N1 | 测试文件放 `Tests/` 目录，由测试项目 `<Compile Include>` 引用 | 测试散落主项目根目录 → 归属错误 |
-| N2 | 测试四重隔离：`[Collection]` 串行 + `ResetForTesting` + `Dispose` + Guid Key | 无隔离 → 测试状态残留，断言失败 |
-| N3 | MySqlSdk 测试连接字符串用环境变量 `MYSQLSDK_TEST_CONNSTR`，禁止硬编码 | 硬编码连接字符串 → 不可移植 |
-| N4 | 测试命名空间避免与类型同名（用 `AppImageTests` 后缀） | `Tests.AppImage` 与 `AppImage` 类冲突 |
+| N1 | 修改主题系统后更新 `theming.md` | 主题文档过期 → AI 违反调色板规则 |
+| N2 | 修改组件规范后更新 `component-guide.md` | 组件文档过期 → AI 创建控件流程错误 |
+| N3 | 不主动引入 WPF/MAUI/Avalonia/ASP.NET/第三方 UI 框架 | 引入 → 与项目定位冲突 |
+
+## O. 测试规范（违反 = 测试失效或归属错误）
+
+| # | 约束 | 违反后果 |
+|---|------|---------|
+| O1 | 测试文件放 `Tests/` 目录，由测试项目 `<Compile Include>` 引用 | 测试散落主项目根目录 → 归属错误 |
+| O2 | 测试四重隔离：`[Collection]` 串行 + `ResetForTesting` + `Dispose` + Guid Key | 无隔离 → 测试状态残留，断言失败 |
+| O3 | MySqlSdk 测试连接字符串用环境变量 `MYSQLSDK_TEST_CONNSTR`，禁止硬编码 | 硬编码连接字符串 → 不可移植 |
+| O4 | 测试命名空间避免与类型同名（用 `AppImageTests` 后缀） | `Tests.AppImage` 与 `AppImage` 类冲突 |
