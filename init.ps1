@@ -417,7 +417,8 @@ function New-AdaptiveAgentsMd {
 | # | 文件 | 触发条件 | 关键信息 |
 |---|------|---------|---------|
 | 5 | [planner.md]($ConfigDirName/agents/planner.md) | Plan 制定任务 | 计划制定流程、Skill 声明、自检清单 |
-| 6 | [annotater.md]($ConfigDirName/agents/annotater.md) | Plan/批注任务 | 批注审查流程 |$(if ($ExtraFileRows) { "`n$ExtraFileRows" })
+| 6 | [annotater.md]($ConfigDirName/agents/annotater.md) | Plan/批注任务 | 批注审查流程 |
+$ExtraFileRows
 
 ⚠️ 读完必读文件后，对照下方「强制记忆清单」确认理解。按需文件在对应任务触发时再读取。
 
@@ -1142,9 +1143,7 @@ foreach ($addon in $script:selectedAddons) {
 # 如果有扩展包额外约束或文件行，需要重新生成 AGENTS.md
 if ($script:extraConstraintSections.Count -gt 0 -or $script:extraFileRows) {
     $agentsMd = New-AdaptiveAgentsMd -ProjectName $script:projectName -ProjectFlavor $projectFlavor -ConfigDirName $configDirName -SelectedConstraints $selectedConstraints -ExtraConstraintSections $script:extraConstraintSections -ExtraFileRows $script:extraFileRows -WorklogDir $script:worklogDir
-    $agentsMdPath = Join-Path $targetDir 'AGENTS.md'
-    if (Test-Path -LiteralPath $agentsMdPath) { Remove-Item -LiteralPath $agentsMdPath -Force }
-    Set-Content -LiteralPath $agentsMdPath -Value $agentsMd -Encoding UTF8 -NoNewline
+    Set-Content -LiteralPath (Join-Path $targetDir 'AGENTS.md') -Value $agentsMd -Encoding UTF8 -NoNewline
     Write-Ok '更新: AGENTS.md（含扩展约束）'
 }
 
