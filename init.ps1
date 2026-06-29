@@ -56,7 +56,7 @@ $ErrorActionPreference = 'Stop'
 
 $RepoOwner  = 'michael007js'
 $RepoName   = 'opencode-config-CommonServerV5'
-$RepoBranch = 'main'
+$RepoBranch = 'master'
 $RepoUrl    = "https://github.com/$RepoOwner/$RepoName.git"
 
 $TemplatesDir = 'templates'

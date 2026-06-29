@@ -1,13 +1,13 @@
 ﻿# opencode-config-CommonServerV5
 
-AI 助助开发配置的一键安装模板。通过 `init.ps1` 将通用 agents/skills/plans/reviews 配置体系安装到任意项目。
+AI 辅助开发配置的一键安装模板。通过 `init.ps1` 将通用 agents/skills/plans/reviews 配置体系安装到任意项目。
 
 ## 快速安装
 
 ### 远程安装（推荐）
 
 ```powershell
-irm https://raw.githubusercontent.com/michael007js/opencode-config-CommonServerV5/master/init.ps1 | iex
+irm https://raw.githubusercontent.com/michael007js/opencode-config-CommonServerV5/master/init.ps1 -OutFile init.ps1; .\init.ps1
 ```
 
 ### 本地安装
