@@ -599,7 +599,6 @@ if ((Test-Path -LiteralPath (Join-Path $scriptDir 'init.ps1')) -and
                 if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue }
             }
         }
-    }
 }
 
 $sourceTemplatesDir = Join-Path $repoDir $TemplatesDir
