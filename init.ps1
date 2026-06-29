@@ -151,8 +151,8 @@ function Get-ProjectName {
             } catch {}
         }
     }
-    $csproj = Get-ChildItem -LiteralPath $Dir -Filter '*.csproj' -Recurse -Depth 2 -ErrorAction SilentlyContinue |
-        Sort-Object { $_.FullName.Split('\').Count } | Select-Object -First 1
+    $csproj = Get-ChildItem -LiteralPath $Dir -Filter '*.csproj' -Depth 0 -ErrorAction SilentlyContinue |
+        Select-Object -First 1
     if ($csproj) { return $csproj.BaseName }
     foreach ($gf in @('settings.gradle', 'settings.gradle.kts')) {
         $gp = Join-Path $Dir $gf
