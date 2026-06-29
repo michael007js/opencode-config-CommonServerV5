@@ -1,0 +1,16 @@
+{
+  "id": "dotnet-winforms",
+  "name": ".NET / WinForms 扩展包",
+  "description": "适用于 .NET + WinForms 桌面应用项目的 AI 辅助扩展",
+  "techStack": [".NET", "WinForms"],
+  "matchFlavors": [".NET"],
+  "agents": ["theming.md", "component-guide.md"],
+  "agentsExtra": "agents-extra.md",
+  "skills": {
+    "core": ["donet-naming", "dotnet-guidelines", "dotnet-winforms-guidelines", "winforms-components"],
+    "domain": ["module-site", "window-form"],
+    "external": ["frontend-design-review"]
+  },
+  "planTemplates": ["plan-template-dotnet.md"],
+  "reviewTemplates": ["code-review-template-dotnet.md"]
+}

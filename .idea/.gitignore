@@ -1,0 +1,13 @@
+﻿# 默认忽略的文件
+/shelf/
+/workspace.xml
+# Rider 忽略的文件
+/.idea.opencode-config-CommonServerV5.iml
+/projectSettingsUpdater.xml
+/modules.xml
+/contentModel.xml
+# 已忽略包含查询文件的默认文件夹
+/queries/
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml

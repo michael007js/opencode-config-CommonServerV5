@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "addons": [
+    {
+      "id": "dotnet-winforms",
+      "name": ".NET / WinForms 扩展包",
+      "description": "适用于 .NET + WinForms 桌面应用项目",
+      "matchFlavors": [".NET"],
+      "path": "dotnet-winforms"
+    }
+  ]
+}
