@@ -1143,7 +1143,9 @@ foreach ($addon in $script:selectedAddons) {
 # 如果有扩展包额外约束或文件行，需要重新生成 AGENTS.md
 if ($script:extraConstraintSections.Count -gt 0 -or $script:extraFileRows) {
     $agentsMd = New-AdaptiveAgentsMd -ProjectName $script:projectName -ProjectFlavor $projectFlavor -ConfigDirName $configDirName -SelectedConstraints $selectedConstraints -ExtraConstraintSections $script:extraConstraintSections -ExtraFileRows $script:extraFileRows -WorklogDir $script:worklogDir
-    Set-Content -LiteralPath (Join-Path $targetDir 'AGENTS.md') -Value $agentsMd -Encoding UTF8 -NoNewline
+    $agentsMdPath = Join-Path $targetDir 'AGENTS.md'
+    if (Test-Path -LiteralPath $agentsMdPath) { Remove-Item -LiteralPath $agentsMdPath -Force }
+    Set-Content -LiteralPath $agentsMdPath -Value $agentsMd -Encoding UTF8 -NoNewline
     Write-Ok '更新: AGENTS.md（含扩展约束）'
 }
 
