@@ -199,10 +199,10 @@ function Get-ProjectFlavor {
 
 function New-DirectoryTree {
     param([string]$Dir, [int]$MaxDepth = 4)
-    $excludePatterns = @('\bin$', '\obj$', '\node_modules$', '\.git$', '\.idea$', '\.vs$',
-                         '\.ai$', '\.opencode$', '\dist$', '\coverage$', '__pycache__$',
-                         '\.venv$', '\venv$', '\target$', '\.next$', '\.gradle$',
-                         '\build$', '\.dart_tool$', 'Pods$', '\.build$', 'DerivedData$')
+    $excludePatterns = @('[\\/]bin$', '[\\/]obj$', '[\\/]node_modules$', '[\\/]\.git$', '[\\/]\.idea$', '[\\/]\.vs$',
+                         '[\\/]\.ai$', '[\\/]\.opencode$', '[\\/]\dist$', '[\\/]\coverage$', '[\\/]__pycache__$',
+                         '[\\/]\.venv$', '[\\/]venv$', '[\\/]\target$', '[\\/]\.next$', '[\\/]\.gradle$',
+                         '[\\/]build$', '[\\/]\.dart_tool$', '[\\/]Pods$', '[\\/]\.build$', '[\\/]DerivedData$')
     $sb = [System.Text.StringBuilder]::new()
 
     function Should-Exclude($path) {
@@ -922,8 +922,14 @@ if ($scanTree -eq 'Y') {
         }
     } catch {}
 
-    Write-Host "  正在扫描项目目录 (深度 $treeDepth)..." -ForegroundColor DarkGray
+    Write-Host "  扫描目录: $targetDir (深度 $treeDepth)..." -ForegroundColor DarkGray
     $treeContent = New-DirectoryTree -Dir $targetDir -MaxDepth $treeDepth
+
+    $lineCount = ($treeContent -split "`n").Count
+    if ($lineCount -le 2) {
+        Write-Warn "扫描结果为空，请检查目标目录: $targetDir"
+    }
+
     $treeMd = @"
 # 项目目录树
 
@@ -938,7 +944,7 @@ $treeContent``````
 "@
     $treePath = Join-Path $configRoot 'agents/directory-tree.md'
     Set-Content -LiteralPath $treePath -Value $treeMd -Encoding UTF8 -NoNewline
-    Write-Ok "已更新: directory-tree.md (深度 $treeDepth)"
+    Write-Ok "已更新: directory-tree.md (深度 $treeDepth, $lineCount 行)"
 }
 
 # ── 安装完成 + 交互 ──────────────────────────────────
