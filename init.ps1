@@ -267,67 +267,135 @@ function New-AdaptiveAgentsMd {
         [string[]]$ProjectFlavor,
         [string]$ConfigDirName,
         [string[]]$SelectedConstraints,
-        [string[]]$ExtraConstraintSections
+        [string[]]$ExtraConstraintSections,
+        [string]$WorklogDir = ''
     )
 
     $stackLine = $ProjectFlavor -join ' + '
 
     $baseConstraints = @'
-## A. 代码规范
+## A. 目录归属（放错 = 迁移 + 重构）
 
 | # | 约束 | 违反后果 |
 |---|------|---------|
-| A1 | 遵循项目现有代码风格和命名约定 | 不一致 → 代码可维护性差 |
-| A2 | 不引入项目未使用的新框架或库 | 引入 → 与项目定位冲突 |
-| A3 | 修改前先理解上下文，不盲目重构 | 盲目重构 → 引入 bug |
+| A1 | SDK 代码放 `Sdk/`，零 UI 依赖，可独立测试 | SDK 混入 UI 依赖 → 无法独立测试，需迁移 |
+| A2 | 框架能力放 `Components/Atomic/`（Theming/DesignTime/AppImageCache） | 纯逻辑类型混入 Composite → 归属错误 |
+| A3 | 自绘控件放 `Components/Composite/`（AppButton/AppImage/AppTabPane） | 控件散落在项目根目录 → 归属错误 |
+| A4 | 命名空间 = 目录路径（`$projectName.` + 目录路径斜杠换点） | 命名空间不匹配 → 构建失败 |
+| A5 | 依赖方向不可逆：上层 → 下层；禁止下层引用上层 | 反向依赖 → 循环依赖，需提取公共层或用事件反转 |
 
-## B. 交互与输出
-
-| # | 约束 | 违反后果 |
-|---|------|---------|
-| B1 | 中文交流，简洁直接 | 英文或冗长 → 被判定为错误 |
-| B2 | 给方案说利弊，由用户定决策 | 不确认 → 做错方向 |
-| B3 | 默认只输出结果，不解释 | 冗长解释 → 被判定为错误 |
-| B4 | 有不确定时先确认，不全盘执行 | 不确认 → 做错方向 |
-
-## C. 工作流程
+## B. UI / 主题（硬编码 = 违反调色板规则）
 
 | # | 约束 | 违反后果 |
 |---|------|---------|
-| C1 | 默认最小正确改动，不主动重构大架构 | 过度重构 → 意外破坏 |
-| C2 | 有价值信息先记录再回答 | 不记录 → 下次会话重复踩坑 |
-| C3 | 构建验证 → 测试验证 → 文档同步 | 不验证 → 引入构建失败 |
+| B1 | 禁止 `Color.FromArgb(...)` / `Color.Xxx` 硬编码颜色 | 必须用 `AppThemePalette` 语义颜色 |
+| B2 | 自绘控件走 `OnPaint` + 订阅 `ThemeChanged` | 走 ApplySingle BackColor/ForeColor → 主题切换失效 |
+| B3 | 新窗体继承 `AppThemedForm`，不直接继承 `Form` | 直接继承 Form → 主题不生效，生命周期不安全 |
+| B4 | 修改调色板必须同步 Light + Dark | 只改一个 → 另一主题下视觉破损 |
+| B5 | 自绘控件圆角用离屏位图，Region 赋值前先 Dispose 旧值 | 直接 SetClip 产生 1px 黑边；不释放旧 Region → GDI 泄漏 |
 
-## D. 文件写入
-
-| # | 约束 | 违反后果 |
-|---|------|---------|
-| D1 | 写入文件用 MCP 工具直接读写文本方式 | 绕过 MCP → 内容丢失或不可控 |
-| D2 | 超大文件分段追加，每次 <200 行 | 一次性写入 → 内存溢出或失败 |
-
-## E. 文档同步
+## C. 代码规范（违反 = 构建失败或设计器崩溃）
 
 | # | 约束 | 违反后果 |
 |---|------|---------|
-| E1 | 新增/删除源码文件后更新 directory-tree.md | 目录树过期 → AI 放错文件位置 |
-| E2 | 修改技术栈/依赖后更新 tech-stack.md | 技术栈文档过期 → AI 引入错误依赖 |
-| E3 | 有踩坑经验更新到 MEMORY.md | 记忆文档过时 → AI 反复踩坑 |
+| C1 | 遵循项目现有代码风格和命名约定 | 不一致 → 代码可维护性差 |
+| C2 | 不引入项目未使用的新框架或库 | 引入 → 与项目定位冲突 |
+| C3 | 修改前先理解上下文，不盲目重构 | 盲目重构 → 引入 bug |
 
-## F. Plan 批注审查
-
-| # | 约束 | 违反后果 |
-|---|------|---------|
-| F1 | 涉及3+文件或新架构的改动，Plan 写完后必须经过批注循环（1-6 轮） | 计划有隐患未暴露 → 实施中途返工 |
-| F2 | 批注必须按 annotater.md 定义的类型标记 | 批注格式混乱 → 决策无法追踪 |
-| F3 | 每条批注必须有对应决策才能推进，决策后立即原地清理 | 未决策批注堆积 → plan 状态不明 |
-| F4 | 仅当所有批注已解决且无新问题时，Plan 状态才可从「规划中」改为「实施中」 | 未完成审批就执行 → 方向错误 |
-
-## G. 工具使用
+## D. 交互与输出（违反 = 被老板判定为冗余错误）
 
 | # | 约束 | 违反后果 |
 |---|------|---------|
-| G1 | 对项目的所有操作必须通过 MCP 工具执行 | 绕过 MCP → 操作不可追踪、不可审计 |
+| D1 | 中文交流，简洁直接 | 英文或冗长 → 被判定为错误 |
+| D2 | 给方案说利弊，由老板定决策；有不确定时先确认，不全盘执行 | 不确认 → 做错方向 |
+| D3 | 默认只输出结果，不解释 | 冗长解释 → 被判定为错误 |
+| D4 | 代码优先输出差异，避免返回完整文件 | 返回完整文件 → 上下文爆炸 |
+| D5 | 每次回复结尾打招呼 + 输出实时时间（精确到秒） | 不打招呼 → 老板认为记忆丢失 |
+
+## E. 工作流程（违反 = 被老板判定为不负责任）
+
+| # | 约束 | 违反后果 |
+|---|------|---------|
+| E1 | 默认最小正确改动，不主动重构大架构 | 过度重构 → 意外破坏 |
+| E2 | 不主动引入 WPF/MAUI/Avalonia/ASP.NET/第三方 UI 框架 | 引入 → 与项目定位冲突 |
+| E3 | 有价值信息先记录再回答（MEMORY.md / PROFILE.md / 每日笔记） | 不记录 → 下次会话重复踩坑 |
+| E4 | 有不确定时先确认，不全盘执行 | 不确认 → 做错方向 |
+
+## F. 文件写入（违反 = 写入失败或内容丢失）
+
+| # | 约束 | 违反后果 |
+|---|------|---------|
+| F1 | 写入文件必须用 Rider MCP tools 直接读写文本方式，禁止内置 write/edit 写整文件 | 绕过 MCP → 内容丢失或不可控 |
+| F2 | 超大文件分段追加，每次 <200 行 | 一次性写入 → 内存溢出或失败 |
+
+## G. 文档同步（违反 = 文档与代码不一致）
+
+| # | 约束 | 违反后果 |
+|---|------|---------|
+| G1 | 新增/删除源码文件后更新 `directory-tree.md` + 中文注释 | 目录树过期 → AI 放错文件位置 |
+| G2 | 修改主题系统后更新 `theming.md` | 主题文档过期 → AI 违反调色板规则 |
+| G3 | 修改组件规范后更新 `component-guide.md` | 组件文档过期 → AI 创建控件流程错误 |
+| G4 | 修改技术栈/依赖/测试后更新 `tech-stack.md` | 技术栈文档过期 → AI 引入错误依赖 |
+| G5 | 有踩坑经验、有价值信息可以更新到 `MEMORY.md` | 记忆文档过时 → AI 无处理经验，反复尝试某个错误 |
+
+## H. 测试规范（违反 = 测试失效或归属错误）
+
+| # | 约束 | 违反后果 |
+|---|------|---------|
+| H1 | 测试文件放 `Tests/` 目录，由测试项目 `<Compile Include>` 引用 | 测试散落主项目根目录 → 归属错误 |
+| H2 | 测试四重隔离：`[Collection]` 串行 + `ResetForTesting` + `Dispose` + Guid Key | 无隔离 → 测试状态残留，断言失败 |
+| H3 | MySqlSdk 测试连接字符串用环境变量，禁止硬编码 | 硬编码连接字符串 → 不可移植 |
+| H4 | 测试命名空间避免与类型同名（用 `XxxTests` 后缀） | 命名空间与类型冲突 |
+
+## I. Plan 批注审查（违反 = 计划不充分就执行，返工率高）
+
+| # | 约束 | 违反后果 |
+|---|------|---------|
+| I1 | 涉及3+文件或新架构的改动，Plan 写完后必须经过批注循环（1-6 轮），不可跳过直接执行 | 计划有隐患未暴露 → 实施中途返工 |
+| I2 | 批注必须按 `annotater.md` 定义的类型标记（🔴 批注/否决、🟡 补充、🔵 流程图、⏸️ don't implement yet） | 批注格式混乱 → 决策无法追踪、清理 |
+| I3 | 每条批注必须有对应决策（✅ 采纳/❌ 不同意/✏️ 调整/⏭️ 跳过）才能推进，决策后立即原地清理 plan.md | 未决策批注堆积 → plan 状态不明 |
+| I4 | 批注审查维度必须覆盖：章节与 plan 模板对应 + AGENTS.md 约束体系（目录归属/主题合规/代码规范/依赖方向/测试规范/最小改动） | 审查维度缺失 → 约束违反未被发现 |
+| I5 | 仅当所有批注已解决且无新问题时，Plan 状态才可从 `规划中` 改为 `实施中` | 未完成审批就执行 → 方向错误 |
+| I6 | 标记 ⏸️ don't implement yet 的项必须在 plan 阶段跟踪表备注，不影响整体状态推进 | 暂缓项丢失 → 后续版本遗漏 |
+
+## J. AI 执行流程（违反 = 流程混乱导致遗漏）
+
+| # | 约束 | 违反后果 |
+|---|------|---------|
+| J1 | 改动前：判断任务类型 → 选正确目录 → UI判断是否接入主题 | 跳过 → 文件放错或主题未接入 |
+| J2 | 改动时：最小改动 + 不破坏 Designer + 不引入新框架 | 破坏 Designer → 设计器崩溃 |
+| J3 | 改动后：构建验证 → 测试验证 → 结构变化同步 agents 文档 | 不验证 → 引入构建失败 |
+| J4 | 自检6项不通过不得跳过（目录/命名空间/依赖/主题/Designer/最小改动） | 跳过自检 → 约束违反 |
+
+## K. 记忆与记录（违反 = 信息丢失或覆盖）
+
+| # | 约束 | 违反后果 |
+|---|------|---------|
+| K1 | 长期记忆 = `MEMORY.md`，每日笔记 = `$worklogDir` | 不记录 → 下次会话重复踩坑 |
+| K2 | 先读取原内容再更新文件，避免信息覆盖 | 直接覆盖 → 历史记忆丢失 |
+| K3 | 临时文件存项目根目录，按日期组织，不提交 git | 临时文件进 git → 仓库污染 |
+| K4 | 不等用户说"记住这个"，有价值信息主动记录 | 不主动记录 → 关键信息遗漏 |
+
+## L. 上下文使用（违反 = token浪费或重复劳动）
+
+| # | 约束 | 违反后果 |
+|---|------|---------|
+| L1 | 不总结历史对话，不重复上下文，只关注当前任务 | 重复上下文 → token浪费 |
+| L2 | 禁止复述用户输入 | 复述 → 被判定为冗余错误 |
+| L3 | 仅在用户要求时解释，最多 3 行 | 冗长解释 → 被判定为错误 |
+
+## M. 工具使用（违反 = 操作绕过MCP导致不可控）
+
+| # | 约束 | 违反后果 |
+|---|------|---------|
+| M1 | 对项目的所有操作必须通过 MCP 工具执行，严禁用 `bash` 替代（如 `cat` 替代 `read`、`grep` 替代 `search`） | 绕过 MCP → 操作不可追踪、不可审计 |
 '@
+
+    if ($WorklogDir) {
+        $baseConstraints = $baseConstraints -replace '\$worklogDir', "``$WorklogDir``"
+    } else {
+        $baseConstraints = $baseConstraints -replace '\$worklogDir', '（待配置）'
+    }
 
     $allConstraintSections = $baseConstraints
     if ($ExtraConstraintSections) {
@@ -340,19 +408,19 @@ function New-AdaptiveAgentsMd {
     $constraintConfirmLines = foreach ($letter in $constraintLetters) {
         $idx = [array]::IndexOf($constraintLetters, $letter) + 1
         switch ($letter) {
-            'A' { "$idx. [A类] 代码规范约束关键词" }
-            'B' { "$idx. [B类] 交互输出约束关键词" }
-            'C' { "$idx. [C类] 工作流程约束关键词" }
-            'D' { "$idx. [D类] 文件写入约束关键词" }
-            'E' { "$idx. [E类] 文档同步约束关键词" }
-            'F' { "$idx. [F类] Plan批注审查约束关键词" }
-            'G' { "$idx. [G类] 工具使用约束关键词" }
-            'H' { "$idx. [H类] 目录归属约束关键词" }
-            'I' { "$idx. [I类] UI/主题约束关键词" }
-            'J' { "$idx. [J类] 代码规范扩展约束关键词" }
-            'K' { "$idx. [K类] 测试规范约束关键词" }
-            'L' { "$idx. [L类] AI执行流程约束关键词" }
-            'M' { "$idx. [M类] 记忆记录约束关键词" }
+            'A' { "$idx. [A类] 目录归属约束关键词" }
+            'B' { "$idx. [B类] UI/主题约束关键词" }
+            'C' { "$idx. [C类] 代码规范约束关键词" }
+            'D' { "$idx. [D类] 交互输出约束关键词" }
+            'E' { "$idx. [E类] 工作流程约束关键词" }
+            'F' { "$idx. [F类] 文件写入约束关键词" }
+            'G' { "$idx. [G类] 文档同步约束关键词" }
+            'H' { "$idx. [H类] 测试规范约束关键词" }
+            'I' { "$idx. [I类] Plan批注审查约束关键词" }
+            'J' { "$idx. [J类] AI执行流程约束关键词" }
+            'K' { "$idx. [K类] 记忆记录约束关键词" }
+            'L' { "$idx. [L类] 上下文使用约束关键词" }
+            'M' { "$idx. [M类] 工具使用约束关键词" }
             default { "$idx. [${letter}类] 约束关键词" }
         }
     }
@@ -373,17 +441,36 @@ function New-AdaptiveAgentsMd {
 
 | # | 文件 | 必须提取的关键信息 |
 |---|------|------------------|
-| 1 | [PROFILE.md]($ConfigDirName/agents/PROFILE.md) | 用户称呼、交流语言、决策风格 |
-| 2 | [directory-tree.md]($ConfigDirName/agents/directory-tree.md) | 文件放置规则、目录结构 |
-| 3 | [tech-stack.md]($ConfigDirName/agents/tech-stack.md) | 技术栈、依赖、测试命令 |
-| 4 | [MEMORY.md]($ConfigDirName/agents/MEMORY.md) | 开发注意事项、技术决策、项目经验 |
+| 1 | [PROFILE.md]($ConfigDirName/agents/PROFILE.md) | 用户称呼（老板）、交流语言（中文）、决策风格（给方案说利弊，由他定）、结尾招呼要求 |
+| 2 | [directory-tree.md]($ConfigDirName/agents/directory-tree.md) | 文件放置规则 |
+| 3 | [tech-stack.md]($ConfigDirName/agents/tech-stack.md) | 技术栈、自研SDK清单、外部依赖、测试命令、AI工作约束 |
+| 4 | [MEMORY.md]($ConfigDirName/agents/MEMORY.md) | 开发注意事项（禁止项）、技术决策记录、项目经验规则、常用命令 |
 
 ## 按需（任务触发时读取）
 
 | # | 文件 | 触发条件 | 关键信息 |
 |---|------|---------|---------|
-| 5 | [planner.md]($ConfigDirName/agents/planner.md) | Plan 制定任务 | 计划制定流程、自检清单 |
+| 5 | [planner.md]($ConfigDirName/agents/planner.md) | Plan 制定任务 | 计划制定流程、Skill 声明、自检清单 |
 | 6 | [annotater.md]($ConfigDirName/agents/annotater.md) | Plan/批注任务 | 批注审查流程 |
+| 7 | [theming.md]($ConfigDirName/agents/theming.md) | UI/控件任务 | 主题系统架构、API 约定、扩展约束 |
+| 8 | [component-guide.md]($ConfigDirName/agents/component-guide.md) | 新增/修改控件任务 | 组件规范、步骤、检查清单 |
+
+⚠️ 读完必读文件后，对照下方「强制记忆清单」确认理解。按需文件在对应任务触发时再读取。
+
+# 步骤2：按任务类型提取规则
+
+执行任务时，根据任务类型从对应文件提取约束规则：
+
+| 任务类型 | 必须遵守的文件规则 |
+|----------|-------------------|
+| UI / 控件 | directory-tree.md 的放置规则 + tech-stack.md 的主题系统 + MEMORY.md 的开发注意事项 |
+| SDK / 基础设施 | directory-tree.md 的 Sdk/ 规则 + tech-stack.md 的依赖约束 + MEMORY.md 的项目经验 |
+| 目录操作 | directory-tree.md 的完整结构 + MEMORY.md 的命名空间=目录路径规则 |
+| Plan / 批注 | planner.md 的制定流程 + annotater.md 的批注审查流程 + I类约束 |
+| 测试 | tech-stack.md 的测试框架/命令 + MEMORY.md 的测试四重隔离 |
+| 文档 | MEMORY.md 的文档同步规则 |
+
+⚠️ 未完成步骤1直接执行任务，将因上下文缺失导致：文件放错目录需迁移、颜色硬编码违反调色板规则、命名空间不匹配构建失败。
 
 ---
 
@@ -395,39 +482,62 @@ $allConstraintSections
 
 ---
 
-# 步骤2：约束确认输出（强制）
+# 步骤3：约束确认输出（强制 — 不可用占位符）
 
-读完上下文文件后，首次回复必须输出以下确认标记。**禁止用占位符**，必须写出每条约束的具体内容关键词：
+读完上下文文件后，首次回复必须输出以下确认标记。**禁止用 "xxx" 占位符**，必须写出每条约束的具体内容关键词：
 
 ``````
-上下文已加载: PROFILE ✓ 目录树 ✓ 技术栈 ✓ 记忆 ✓ 约束 ✓
-我已经确认了用户对我的约束：
+上下文已加载: PROFILE ✓ 目录树 ✓ 技术栈 ✓ 记忆 ✓  约束 ✓
+我已经确认了老板对我的约束：
 $confirmBlock
 ``````
 
-**每类至少写出总结具体内容**，证明你不是在走过场。
+**每类至少写出总结具体内容**，证明你不是在走过场。如果写不出具体内容，说明你没有真正读完上下文文件，必须重新读取。
 
 ---
 
-# 任务执行前自检
+# 任务执行前自检（每次改动前必须过）
 
-| # | 自检项 | 通过条件 |
-|---|--------|---------|
-| 1 | 代码风格 | 与项目现有风格一致 |
-| 2 | 最小改动 | 只改必要的，不重构不相关部分 |
-| 3 | 依赖安全 | 不引入新框架/库（除非用户要求） |
-| 4 | 构建验证 | 改动后构建通过 |
+在执行任何代码改动前，逐项自检：
+
+| # | 自检项 | ✅ 通过条件 |
+|---|--------|------------|
+| 1 | 目录归属 | 文件放在正确目录（Sdk/Atomic/Composite/Tests/） |
+| 2 | 命名空间 | 命名空间 = ``$projectName.`` + 目录路径 |
+| 3 | 依赖方向 | 无反向依赖（下层不引用上层） |
+| 4 | 主题合规 | UI 代码用 AppThemePalette，无硬编码颜色 |
+| 5 | Designer 安全 | 手写逻辑不在 Designer.cs 中 |
+| 6 | 最小改动 | 只改必要的，不重构不相关部分 |
 
 自检不通过的项目，必须先修正再继续执行，不得跳过。
 
 ---
 
-# 执行方式
+# 执行方式（任务派发时选择）
+
+在开始执行多步骤任务前，根据任务复杂度和上下文需求选择执行方式：
 
 | 方式 | 适用场景 | 机制 | 优势 |
 |------|---------|------|------|
-| **Subagent 驱动（推荐）** | 多个独立子任务 | 每个 Task 派一个新 subagent | 隔离上下文、并行加速 |
-| **内联执行** | 有顺序依赖 | 在当前会话中逐步执行 | 上下文连续、调试方便 |
+| **Subagent 驱动（推荐）** | 多个独立子任务、可并行的工作 | 每个 Task 派一个新 subagent 执行，任务间审查，迭代快 | 隔离上下文、并行加速、审查节点清晰 |
+| **内联执行** | 有顺序依赖、需要共享上下文的任务 | 在当前会话中逐 Task 执行，带检查点审查 | 上下文连续、调试方便、无需重复加载上下文 |
+
+## Subagent 驱动模式
+
+1. 将任务拆分为独立子任务，每个子任务有明确输入和预期输出
+2. 每个子任务派一个新 subagent（`Task` 工具 + `subagent_type`）
+3. 可并行的子任务同时派发，单条消息内多个 Task 调用
+4. subagent 返回结果后，审查产出是否符合预期
+5. 审查通过 → 继续下一个；不通过 → 反馈修正或重新派发
+6. 所有子任务完成后汇总结果
+
+## 内联执行模式
+
+1. 将任务拆分为有序步骤，每步有检查点
+2. 在当前会话中逐步执行，完成一步后暂停
+3. 在检查点审查：构建是否通过、约束是否满足
+4. 审查通过 → 继续下一步；不通过 → 修正后继续
+5. 所有步骤完成后汇总结果
 "@
 }
 
@@ -638,6 +748,7 @@ if ($script:adaptProject) {
 # 3.2 项目背景信息
 $script:projectDesc = ''
 $script:projectPlatform = ''
+$script:worklogDir = ''
 if ($script:adaptProject) {
     Write-Host ''
     Write-Host '  请输入项目背景信息:' -ForegroundColor White
@@ -645,6 +756,8 @@ if ($script:adaptProject) {
     try { $script:projectDesc = (Read-Host).Trim() } catch {}
     Write-Host '  支持平台 (如: Windows / Linux / 跨平台): ' -NoNewline -ForegroundColor Yellow
     try { $script:projectPlatform = (Read-Host).Trim() } catch {}
+    Write-Host '  每日笔记目录 (如: C:/_worklog，默认不配置): ' -NoNewline -ForegroundColor Yellow
+    try { $script:worklogDir = (Read-Host).Trim() } catch {}
 }
 
 # 3.2 约束模块选择
@@ -712,6 +825,7 @@ Write-Host "  项目名:     $($script:projectName)" -ForegroundColor White
 Write-Host "  项目描述:   $(if ($script:projectDesc) { $script:projectDesc } else { '（默认）' })" -ForegroundColor White
 Write-Host "  支持平台:   $(if ($script:projectPlatform) { $script:projectPlatform } else { '（默认）' })" -ForegroundColor White
 Write-Host "  技术栈:     $($projectFlavor -join ' + ')" -ForegroundColor White
+Write-Host "  笔记目录:   $(if ($script:worklogDir) { $script:worklogDir } else { '（未配置）' })" -ForegroundColor White
 Write-Host "  约束模块:   $($selectedConstraints -join ', ')" -ForegroundColor White
 Write-Host "  RTK 技能:   $(if ($script:installRtk) { '是' } else { '否' })" -ForegroundColor White
 Write-Host "  扩展包:     $(if ($script:selectedAddons.Count -gt 0) { ($script:selectedAddons | ForEach-Object { $_.name }) -join ', ' } else { '无' })" -ForegroundColor White
@@ -836,7 +950,7 @@ foreach ($file in $agentFiles) {
 }
 
 # AGENTS.md → 项目根（动态生成）
-$agentsMd = New-AdaptiveAgentsMd -ProjectName $script:projectName -ProjectFlavor $projectFlavor -ConfigDirName $configDirName -SelectedConstraints $selectedConstraints -ExtraConstraintSections $script:extraConstraintSections
+$agentsMd = New-AdaptiveAgentsMd -ProjectName $script:projectName -ProjectFlavor $projectFlavor -ConfigDirName $configDirName -SelectedConstraints $selectedConstraints -ExtraConstraintSections $script:extraConstraintSections -WorklogDir $script:worklogDir
 $null = Install-GeneratedFile -DestinationPath (Join-Path $targetDir 'AGENTS.md') -Content $agentsMd -Label 'AGENTS.md'
 
 # RTK skill
@@ -896,7 +1010,7 @@ foreach ($addon in $script:selectedAddons) {
 
 # 如果有扩展包额外约束，需要重新生成 AGENTS.md
 if ($script:extraConstraintSections.Count -gt 0) {
-    $agentsMd = New-AdaptiveAgentsMd -ProjectName $script:projectName -ProjectFlavor $projectFlavor -ConfigDirName $configDirName -SelectedConstraints $selectedConstraints -ExtraConstraintSections $script:extraConstraintSections
+    $agentsMd = New-AdaptiveAgentsMd -ProjectName $script:projectName -ProjectFlavor $projectFlavor -ConfigDirName $configDirName -SelectedConstraints $selectedConstraints -ExtraConstraintSections $script:extraConstraintSections -WorklogDir $script:worklogDir
     Set-Content -LiteralPath (Join-Path $targetDir 'AGENTS.md') -Value $agentsMd -Encoding UTF8 -NoNewline
     Write-Ok '更新: AGENTS.md（含扩展约束）'
 }
