@@ -797,26 +797,6 @@ if ($sourceAddonsDir -and (Test-Path -LiteralPath $sourceAddonsDir)) {
             }
         }
     }
-
-    # 也列出所有扩展包供选择
-    $allAddonsJson = Join-Path $sourceAddonsDir 'addons.json'
-    if (Test-Path -LiteralPath $allAddonsJson) {
-        $allAddons = (Get-Content -LiteralPath $allAddonsJson -Raw -Encoding UTF8 | ConvertFrom-Json).addons
-        $unmatched = @($allAddons | Where-Object {
-            $aid = $_.id
-            -not (@($matchedAddons) | Where-Object { $_.id -eq $aid })
-        })
-        if ($unmatched.Count -gt 0) {
-            Write-Host ''
-            Write-Host '  其他可用扩展包:' -ForegroundColor DarkGray
-            foreach ($addon in $unmatched) {
-                $installAddon = Read-Choice "  是否安装 $($addon.name)?" 'N' @('Y','N')
-                if ($installAddon -eq 'Y') {
-                    $script:selectedAddons += $addon
-                }
-            }
-        }
-    }
 }
 
 # 3.5 确认配置
