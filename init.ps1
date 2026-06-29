@@ -635,6 +635,18 @@ if ($script:adaptProject) {
     $script:projectName = '{{PROJECT_NAME}}'
 }
 
+# 3.2 项目背景信息
+$script:projectDesc = ''
+$script:projectPlatform = ''
+if ($script:adaptProject) {
+    Write-Host ''
+    Write-Host '  请输入项目背景信息:' -ForegroundColor White
+    Write-Host '  项目描述 (如: C#/.NET 代码助手，正在开发 MyApp): ' -NoNewline -ForegroundColor Yellow
+    try { $script:projectDesc = (Read-Host).Trim() } catch {}
+    Write-Host '  支持平台 (如: Windows / Linux / 跨平台): ' -NoNewline -ForegroundColor Yellow
+    try { $script:projectPlatform = (Read-Host).Trim() } catch {}
+}
+
 # 3.2 约束模块选择
 Write-Host ''
 Write-Host '  基础约束模块（A-G）:' -ForegroundColor White
@@ -697,6 +709,8 @@ Write-Host ''
 Write-Host '  ─── 安装配置确认 ──────────────────────────' -ForegroundColor Cyan
 Write-Host "  安装模式:   $(if ($script:adaptProject) { '适配当前项目' } else { '通用模板' })" -ForegroundColor White
 Write-Host "  项目名:     $($script:projectName)" -ForegroundColor White
+Write-Host "  项目描述:   $(if ($script:projectDesc) { $script:projectDesc } else { '（默认）' })" -ForegroundColor White
+Write-Host "  支持平台:   $(if ($script:projectPlatform) { $script:projectPlatform } else { '（默认）' })" -ForegroundColor White
 Write-Host "  技术栈:     $($projectFlavor -join ' + ')" -ForegroundColor White
 Write-Host "  约束模块:   $($selectedConstraints -join ', ')" -ForegroundColor White
 Write-Host "  RTK 技能:   $(if ($script:installRtk) { '是' } else { '否' })" -ForegroundColor White
@@ -786,7 +800,20 @@ $null = Install-GeneratedFile -DestinationPath (Join-Path $configRoot 'agents/te
 $srcProfile = Join-Path $sourceAgentsDir 'PROFILE.example.md'
 $dstProfile = Join-Path $configRoot 'agents/PROFILE.md'
 if (Test-Path -LiteralPath $srcProfile) {
-    $null = Install-File -SourcePath $srcProfile -DestinationPath $dstProfile -Label 'PROFILE.md'
+    $profileContent = Get-Content -LiteralPath $srcProfile -Raw -Encoding UTF8
+    if ($script:projectDesc) {
+        $profileContent = $profileContent -replace '- 正在开发 \{\{PROJECT_NAME\}\}', "- $($script:projectDesc)"
+    }
+    if ($script:projectPlatform) {
+        $profileContent = $profileContent -replace '- 支持平台：Windows', "- 支持平台：$($script:projectPlatform)"
+    }
+    $profileContent = $profileContent -replace '\{\{PROJECT_NAME\}\}', $script:projectName
+    if ((Test-Path -LiteralPath $dstProfile) -and -not $Force) {
+        Write-Skip '已存在: PROFILE.md'
+    } else {
+        Set-Content -LiteralPath $dstProfile -Value $profileContent -Encoding UTF8 -NoNewline
+        Write-Ok '安装: PROFILE.md'
+    }
 }
 
 # MEMORY.example.md → MEMORY.md
