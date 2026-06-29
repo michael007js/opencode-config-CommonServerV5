@@ -569,7 +569,7 @@ function Install-Addon {
         }
     }
 
-    # 安装 skills
+    # 安装 skills（交互选择）
     if ($addon.skills) {
         foreach ($skillCategory in @('core', 'domain', 'external')) {
             $skillList = $addon.skills.$skillCategory
@@ -578,20 +578,39 @@ function Install-Addon {
                     $srcSkillDir = Join-Path $AddonPath "skills/$skillCategory/$skillName"
                     if (Test-Path -LiteralPath $srcSkillDir) {
                         $dstSkillDir = Join-Path $ConfigRoot "skills/$skillCategory/$skillName"
-                        if (-not (Test-Path -LiteralPath $dstSkillDir) -or $Force) {
-                            if (Test-Path -LiteralPath $dstSkillDir) { Remove-Item -LiteralPath $dstSkillDir -Recurse -Force }
-                            Copy-Item -LiteralPath $srcSkillDir -Destination $dstSkillDir -Recurse -Force
-                            Get-ChildItem -LiteralPath $dstSkillDir -Recurse -File | ForEach-Object {
-                                try {
-                                    $c = Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8
-                                    $c = $c -replace '\{\{PROJECT_NAME\}\}', $ProjectName
-                                    $c = $c -replace 'CommonServerV5', $ProjectName
-                                    Set-Content -LiteralPath $_.FullName -Value $c -Encoding UTF8 -NoNewline
-                                } catch {}
+                        $skillDesc = ''
+                        $skillMdPath = Join-Path $srcSkillDir 'SKILL.md'
+                        if (Test-Path -LiteralPath $skillMdPath) {
+                            try {
+                                $firstLines = Get-Content -LiteralPath $skillMdPath -TotalCount 10 -Encoding UTF8
+                                foreach ($line in $firstLines) {
+                                    if ($line -match '^\s*description:\s*"(.+?)"') {
+                                        $skillDesc = $Matches[1] -replace '\{\{PROJECT_NAME\}\}', $ProjectName
+                                        break
+                                    }
+                                }
+                            } catch {}
+                        }
+                        $prompt = if ($skillDesc) { "  是否安装 skill $skillName? $skillDesc" } else { "  是否安装 skill $skillName?" }
+                        $installSkill = Read-Choice $prompt 'Y' @('Y','N')
+                        if ($installSkill -eq 'Y') {
+                            if (-not (Test-Path -LiteralPath $dstSkillDir) -or $Force) {
+                                if (Test-Path -LiteralPath $dstSkillDir) { Remove-Item -LiteralPath $dstSkillDir -Recurse -Force }
+                                Copy-Item -LiteralPath $srcSkillDir -Destination $dstSkillDir -Recurse -Force
+                                Get-ChildItem -LiteralPath $dstSkillDir -Recurse -File | ForEach-Object {
+                                    try {
+                                        $c = Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8
+                                        $c = $c -replace '\{\{PROJECT_NAME\}\}', $ProjectName
+                                        $c = $c -replace 'CommonServerV5', $ProjectName
+                                        Set-Content -LiteralPath $_.FullName -Value $c -Encoding UTF8 -NoNewline
+                                    } catch {}
+                                }
+                                Write-Ok "安装: skills/$skillCategory/$skillName/"
+                            } else {
+                                Write-Skip "已存在: skills/$skillCategory/$skillName/"
                             }
-                            Write-Ok "安装: skills/$skillCategory/$skillName/"
                         } else {
-                            Write-Skip "已存在: skills/$skillCategory/$skillName/"
+                            Write-Skip "跳过: skills/$skillCategory/$skillName/"
                         }
                     }
                 }
