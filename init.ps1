@@ -910,6 +910,37 @@ if ($cleanupDirs) {
     Write-Ok '已清理临时目录'
 }
 
+# ── directory-tree.md 扫描更新 ─────────────────────────
+$treeDepth = 4
+$scanTree = Read-Choice '是否扫描项目目录更新 directory-tree.md?' 'Y' @('Y','N')
+if ($scanTree -eq 'Y') {
+    Write-Host '  输入目录扫描深度 (1-8，默认 4): ' -NoNewline -ForegroundColor Yellow
+    try {
+        $depthInput = (Read-Host).Trim()
+        if ($depthInput -and $depthInput -match '^\d+$' -and [int]$depthInput -ge 1 -and [int]$depthInput -le 8) {
+            $treeDepth = [int]$depthInput
+        }
+    } catch {}
+
+    Write-Host "  正在扫描项目目录 (深度 $treeDepth)..." -ForegroundColor DarkGray
+    $treeContent = New-DirectoryTree -Dir $targetDir -MaxDepth $treeDepth
+    $treeMd = @"
+# 项目目录树
+
+本文档供 AI 助手阅读。记录 ``$($script:projectName)`` 项目的源码目录结构。
+
+> **维护规则**：每次新增或删除源码文件/目录后，必须同步更新本文档。
+
+---
+
+``````
+$treeContent``````
+"@
+    $treePath = Join-Path $configRoot 'agents/directory-tree.md'
+    Set-Content -LiteralPath $treePath -Value $treeMd -Encoding UTF8 -NoNewline
+    Write-Ok "已更新: directory-tree.md (深度 $treeDepth)"
+}
+
 # ── 安装完成 + 交互 ──────────────────────────────────
 Write-Step '[7/7] 安装完成!'
 
