@@ -268,6 +268,7 @@ function New-AdaptiveAgentsMd {
         [string]$ConfigDirName,
         [string[]]$SelectedConstraints,
         [string[]]$ExtraConstraintSections,
+        [string]$ExtraFileRows = '',
         [string]$WorklogDir = ''
     )
 
@@ -417,8 +418,7 @@ function New-AdaptiveAgentsMd {
 |---|------|---------|---------|
 | 5 | [planner.md]($ConfigDirName/agents/planner.md) | Plan 制定任务 | 计划制定流程、Skill 声明、自检清单 |
 | 6 | [annotater.md]($ConfigDirName/agents/annotater.md) | Plan/批注任务 | 批注审查流程 |
-| 7 | [theming.md]($ConfigDirName/agents/theming.md) | UI/控件任务 | 主题系统架构、API 约定、扩展约束 |
-| 8 | [component-guide.md]($ConfigDirName/agents/component-guide.md) | 新增/修改控件任务 | 组件规范、步骤、检查清单 |
+$ExtraFileRows
 
 ⚠️ 读完必读文件后，对照下方「强制记忆清单」确认理解。按需文件在对应任务触发时再读取。
 
@@ -621,7 +621,24 @@ function Install-Addon {
         }
     }
 
-    return $extraConstraints
+    # 收集额外按需文件行（不自动追加，由主流程交互选择）
+    $extraFileRows = @()
+    if ($addon.agentsExtraFiles) {
+        $extraFilePath = Join-Path $AddonPath $addon.agentsExtraFiles
+        if (Test-Path -LiteralPath $extraFilePath) {
+            $rawRows = Get-Content -LiteralPath $extraFilePath -Encoding UTF8 |
+                Where-Object { $_ -match '^\s*\|' }
+            foreach ($row in $rawRows) {
+                $row = $row -replace '\$ConfigDirName', $ConfigDirName
+                $row = $row -replace '\{\{PROJECT_NAME\}\}', $ProjectName
+                $row = $row -replace 'CommonServerV5', $ProjectName
+                $row = $row.Trim()
+                if ($row) { $extraFileRows += $row }
+            }
+        }
+    }
+
+    return $extraConstraints, $extraFileRows
 }
 
 # ============================================================
@@ -745,6 +762,7 @@ $script:installRtk = ($installRtk -eq 'Y')
 
 # 3.4 扩展包
 $script:extraConstraintSections = @()
+$script:extraFileRows = ''
 $script:selectedAddons = @()
 
 if ($sourceAddonsDir -and (Test-Path -LiteralPath $sourceAddonsDir)) {
@@ -915,7 +933,7 @@ foreach ($file in $agentFiles) {
 }
 
 # AGENTS.md → 项目根（动态生成）
-$agentsMd = New-AdaptiveAgentsMd -ProjectName $script:projectName -ProjectFlavor $projectFlavor -ConfigDirName $configDirName -SelectedConstraints $selectedConstraints -ExtraConstraintSections $script:extraConstraintSections -WorklogDir $script:worklogDir
+$agentsMd = New-AdaptiveAgentsMd -ProjectName $script:projectName -ProjectFlavor $projectFlavor -ConfigDirName $configDirName -SelectedConstraints $selectedConstraints -ExtraConstraintSections $script:extraConstraintSections -ExtraFileRows $script:extraFileRows -WorklogDir $script:worklogDir
 $null = Install-GeneratedFile -DestinationPath (Join-Path $targetDir 'AGENTS.md') -Content $agentsMd -Label 'AGENTS.md'
 
 # RTK skill
@@ -964,18 +982,33 @@ Write-Step '[6/7] 安装扩展包...'
 foreach ($addon in $script:selectedAddons) {
     $addonPath = Join-Path $sourceAddonsDir $addon.path
     if (Test-Path -LiteralPath $addonPath) {
-        $extraConstraints = Install-Addon -AddonPath $addonPath -ConfigRoot $configRoot -ProjectName $script:projectName -ConfigDirName $configDirName
+        $extraConstraints, $extraFileRows = Install-Addon -AddonPath $addonPath -ConfigRoot $configRoot -ProjectName $script:projectName -ConfigDirName $configDirName
         if ($extraConstraints) {
             $script:extraConstraintSections += $extraConstraints
+        }
+        if ($extraFileRows.Count -gt 0) {
+            Write-Host ''
+            Write-Host "  扩展包 $($addon.name) 提供以下按需文件:" -ForegroundColor White
+            foreach ($row in $extraFileRows) {
+                if ($row -match '^\|\s*\d+\s*\|\s*\[([^\]]+)\]\(([^)]+)\)\s*\|\s*([^|]+)\s*\|\s*([^|]+)') {
+                    $fileName = $Matches[1]
+                    $trigger = $Matches[3].Trim()
+                    $info = $Matches[4].Trim()
+                    $addRow = Read-Choice "  是否添加按需文件 $fileName? ($trigger — $info)" 'Y' @('Y','N')
+                    if ($addRow -eq 'Y') {
+                        $script:extraFileRows = if ($script:extraFileRows) { "$($script:extraFileRows)`n$row" } else { $row }
+                    }
+                }
+            }
         }
     } else {
         Write-Warn "扩展包目录缺失: $($addon.path)"
     }
 }
 
-# 如果有扩展包额外约束，需要重新生成 AGENTS.md
-if ($script:extraConstraintSections.Count -gt 0) {
-    $agentsMd = New-AdaptiveAgentsMd -ProjectName $script:projectName -ProjectFlavor $projectFlavor -ConfigDirName $configDirName -SelectedConstraints $selectedConstraints -ExtraConstraintSections $script:extraConstraintSections -WorklogDir $script:worklogDir
+# 如果有扩展包额外约束或文件行，需要重新生成 AGENTS.md
+if ($script:extraConstraintSections.Count -gt 0 -or $script:extraFileRows) {
+    $agentsMd = New-AdaptiveAgentsMd -ProjectName $script:projectName -ProjectFlavor $projectFlavor -ConfigDirName $configDirName -SelectedConstraints $selectedConstraints -ExtraConstraintSections $script:extraConstraintSections -ExtraFileRows $script:extraFileRows -WorklogDir $script:worklogDir
     Set-Content -LiteralPath (Join-Path $targetDir 'AGENTS.md') -Value $agentsMd -Encoding UTF8 -NoNewline
     Write-Ok '更新: AGENTS.md（含扩展约束）'
 }

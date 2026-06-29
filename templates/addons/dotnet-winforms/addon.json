@@ -6,6 +6,7 @@
   "matchFlavors": [".NET"],
   "agents": ["theming.md", "component-guide.md"],
   "agentsExtra": "agents-extra.md",
+  "agentsExtraFiles": "agents-extra-files.md",
   "skills": {
     "core": ["donet-naming", "dotnet-guidelines", "dotnet-winforms-guidelines", "winforms-components"],
     "domain": ["module-site", "window-form"],
