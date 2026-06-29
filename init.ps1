@@ -953,10 +953,7 @@ foreach ($file in $agentFiles) {
 
 # AGENTS.md → 项目根（动态生成）
 $agentsMd = New-AdaptiveAgentsMd -ProjectName $script:projectName -ProjectFlavor $projectFlavor -ConfigDirName $configDirName -SelectedConstraints $selectedConstraints -ExtraConstraintSections $script:extraConstraintSections -ExtraFileRows $script:extraFileRows -WorklogDir $script:worklogDir
-$agentsMdPath = Join-Path $targetDir 'AGENTS.md'
-if (Test-Path -LiteralPath $agentsMdPath) { Remove-Item -LiteralPath $agentsMdPath -Force }
-Set-Content -LiteralPath $agentsMdPath -Value $agentsMd -Encoding UTF8 -NoNewline
-Write-Ok '生成: AGENTS.md'
+$null = Install-GeneratedFile -DestinationPath (Join-Path $targetDir 'AGENTS.md') -Content $agentsMd -Label 'AGENTS.md'
 
 # RTK
 $script:installRtk = $false
