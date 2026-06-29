@@ -373,17 +373,17 @@ function New-AdaptiveAgentsMd {
 
 | # | 文件 | 必须提取的关键信息 |
 |---|------|------------------|
-| 1 | [PROFILE.md]($projectName/$ConfigDirName/agents/PROFILE.md) | 用户称呼、交流语言、决策风格 |
-| 2 | [directory-tree.md]($projectName/$ConfigDirName/agents/directory-tree.md) | 文件放置规则、目录结构 |
-| 3 | [tech-stack.md]($projectName/$ConfigDirName/agents/tech-stack.md) | 技术栈、依赖、测试命令 |
-| 4 | [MEMORY.md]($projectName/$ConfigDirName/agents/MEMORY.md) | 开发注意事项、技术决策、项目经验 |
+| 1 | [PROFILE.md]($ConfigDirName/agents/PROFILE.md) | 用户称呼、交流语言、决策风格 |
+| 2 | [directory-tree.md]($ConfigDirName/agents/directory-tree.md) | 文件放置规则、目录结构 |
+| 3 | [tech-stack.md]($ConfigDirName/agents/tech-stack.md) | 技术栈、依赖、测试命令 |
+| 4 | [MEMORY.md]($ConfigDirName/agents/MEMORY.md) | 开发注意事项、技术决策、项目经验 |
 
 ## 按需（任务触发时读取）
 
 | # | 文件 | 触发条件 | 关键信息 |
 |---|------|---------|---------|
-| 5 | [planner.md]($projectName/$ConfigDirName/agents/planner.md) | Plan 制定任务 | 计划制定流程、自检清单 |
-| 6 | [annotater.md]($projectName/$ConfigDirName/agents/annotater.md) | Plan/批注任务 | 批注审查流程 |
+| 5 | [planner.md]($ConfigDirName/agents/planner.md) | Plan 制定任务 | 计划制定流程、自检清单 |
+| 6 | [annotater.md]($ConfigDirName/agents/annotater.md) | Plan/批注任务 | 批注审查流程 |
 
 ---
 
