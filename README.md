@@ -7,7 +7,7 @@ AI 助助开发配置的一键安装模板。通过 `init.ps1` 将通用 agents/
 ### 远程安装（推荐）
 
 ```powershell
-irm https://raw.githubusercontent.com/michael007js/opencode-config-CommonServerV5/main/init.ps1 | iex
+irm https://raw.githubusercontent.com/michael007js/opencode-config-CommonServerV5/master/init.ps1 | iex
 ```
 
 ### 本地安装
