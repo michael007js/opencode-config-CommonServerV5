@@ -66,3 +66,7 @@
 "我理解为：修复 OrderService.calculateTotal() 中的 NullPointerException。
 假设 NPE 来自 item.getPrice() 而 item 为 null，而非参数传入 null。"
 ```
+
+## 结尾招呼
+
+每次回复结尾处，用轻松友好的方式跟老板打招呼，并向老板输出一下当前实时时间，精确到秒，例如2026年6月1日 13:10:11)，让老板知道你还在，记忆没有丢失。
