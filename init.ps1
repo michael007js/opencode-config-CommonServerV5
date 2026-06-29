@@ -775,11 +775,7 @@ $baseConstraintOptions = @{
 }
 $selectedConstraints = Read-MultiChoice '选择基础约束模块（默认全选）' $baseConstraintOptions @('1','2','3','4','5','6','7')
 
-# 3.3 RTK 技能
-$installRtk = Read-Choice "是否安装 RTK 技能?" 'Y' @('Y','N')
-$script:installRtk = ($installRtk -eq 'Y')
-
-# 3.4 扩展包
+# 3.3 扩展包
 $script:extraConstraintSections = @()
 $script:extraFileRows = ''
 $script:selectedAddons = @()
@@ -955,7 +951,126 @@ foreach ($file in $agentFiles) {
 $agentsMd = New-AdaptiveAgentsMd -ProjectName $script:projectName -ProjectFlavor $projectFlavor -ConfigDirName $configDirName -SelectedConstraints $selectedConstraints -ExtraConstraintSections $script:extraConstraintSections -ExtraFileRows $script:extraFileRows -WorklogDir $script:worklogDir
 $null = Install-GeneratedFile -DestinationPath (Join-Path $targetDir 'AGENTS.md') -Content $agentsMd -Label 'AGENTS.md'
 
-# RTK skill
+# RTK
+$script:installRtk = $false
+$rtkChoice = Read-Choice '是否安装 RTK (Rust Token Killer — LLM token 优化工具)?' 'Y' @('Y','N')
+if ($rtkChoice -eq 'Y') {
+    Write-Host ''
+    Write-Host '  正在检查 RTK 是否已安装...' -ForegroundColor DarkGray
+    $rtkInstalled = $false
+    try {
+        $rtkVer = rtk --version 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $rtkGain = rtk gain 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                $rtkInstalled = $true
+                Write-Ok "RTK 已安装: $rtkVer"
+            }
+        }
+    } catch {}
+
+    $rtkInstallDir = ''
+    if (-not $rtkInstalled) {
+        if ($IsWindows -or $env:OS -eq 'Windows_NT') {
+            $defaultDir = "$env:USERPROFILE\.cargo\bin"
+            Write-Host ''
+            Write-Host '  ─── Windows 安装 ───' -ForegroundColor Cyan
+            Write-Host "  RTK 安装目录 (留空默认 $defaultDir): " -NoNewline -ForegroundColor Yellow
+            try { $rtkInstallDir = (Read-Host).Trim() } catch {}
+            if (-not $rtkInstallDir) { $rtkInstallDir = $defaultDir }
+
+            if (-not (Test-Path -LiteralPath $rtkInstallDir)) {
+                New-Item -ItemType Directory -Path $rtkInstallDir -Force | Out-Null
+                Write-Ok "创建目录: $rtkInstallDir"
+            }
+
+            $rtkAutoInstall = Read-Choice '  是否尝试自动安装 (cargo install)?' 'Y' @('Y','N')
+            if ($rtkAutoInstall -eq 'Y') {
+                if (Get-Command cargo -ErrorAction SilentlyContinue) {
+                    Write-Host '  正在通过 cargo 安装 RTK...' -ForegroundColor DarkGray
+                    try {
+                        $env:CARGO_INSTALL_ROOT = $rtkInstallDir
+                        cargo install --git https://github.com/rtk-ai/rtk --root $rtkInstallDir 2>&1 |
+                            ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+                        if ($LASTEXITCODE -eq 0) {
+                            $rtkInstalled = $true
+                            Write-Ok 'RTK 安装成功'
+                        } else {
+                            Write-Fail 'RTK 自动安装失败，尝试下载预编译版本...'
+                        }
+                    } catch {
+                        Write-Fail "RTK 自动安装失败: $_，尝试下载预编译版本..."
+                    }
+                } else {
+                    Write-Warn '未找到 cargo，尝试下载预编译版本...'
+                }
+
+                if (-not $rtkInstalled) {
+                    $rtkExePath = Join-Path $rtkInstallDir 'rtk.exe'
+                    $releasesUrl = 'https://github.com/rtk-ai/rtk/releases/latest'
+                    Write-Host ''
+                    Write-Warn '自动安装失败，请手动完成以下步骤后继续：'
+                    Write-Host "  1. 访问 $releasesUrl 下载 rtk-windows-amd64.zip" -ForegroundColor White
+                    Write-Host "  2. 解压后将 rtk.exe 复制到: $rtkInstallDir" -ForegroundColor White
+                    Write-Host ''
+                    Write-Host '  安装完成后按回车继续...' -NoNewline -ForegroundColor Yellow
+                    try { $null = Read-Host } catch {}
+                    
+                    if (Test-Path -LiteralPath $rtkExePath) {
+                        $rtkInstalled = $true
+                        Write-Ok '检测到 RTK 已安装'
+                    } else {
+                        $env:PATH = "$rtkInstallDir;$($env:PATH)"
+                        try {
+                            $rtkCheck = Get-Command rtk -ErrorAction SilentlyContinue
+                            if ($rtkCheck) {
+                                $rtkInstalled = $true
+                                Write-Ok '检测到 RTK 已安装（系统 PATH）'
+                            }
+                        } catch {}
+                    }
+                }
+            }
+        } else {
+            if (Get-Command sh -ErrorAction SilentlyContinue) {
+                Write-Host '  正在通过 curl 安装 RTK...' -ForegroundColor DarkGray
+                try {
+                    sh -c 'curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh' 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+                    $rtkInstalled = $true
+                    Write-Ok 'RTK 安装成功'
+                } catch {
+                    Write-Fail "RTK 自动安装失败: $_"
+                }
+            }
+        }
+    }
+
+    if ($rtkInstalled) {
+        Write-Host ''
+        Write-Host '  ─── RTK 初始化 ───' -ForegroundColor Cyan
+        $rtkGlobal = Read-Choice '  是否全局初始化 RTK (推荐，所有项目自动生效)?' 'Y' @('Y','N')
+        if ($rtkGlobal -eq 'Y') {
+            Write-Host '  执行: rtk init -g' -ForegroundColor DarkGray
+            try { rtk init -g 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray } } catch {}
+        } else {
+            Write-Host "  执行: rtk init (当前项目)" -ForegroundColor DarkGray
+            try { rtk init 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray } } catch {}
+        }
+        Write-Ok 'RTK 初始化完成'
+    }
+
+    if (-not $rtkInstalled) {
+        Write-Host ''
+        Write-Warn 'RTK 未安装成功，跳过 RTK skill 安装'
+        Write-Host '  安装完成后可重新运行 init.ps1 -Force 选择安装 RTK' -ForegroundColor DarkGray
+    } else {
+        Write-Host ''
+        $rtkSkill = Read-Choice '  是否安装 RTK skill (AI 约束规则，确保 AI 助手始终使用 rtk 前缀)?' 'Y' @('Y','N')
+        $script:installRtk = ($rtkSkill -eq 'Y')
+    }
+}
+
+# RTK skill 安装
 if ($script:installRtk) {
     $srcRtkDir = Join-Path $sourceSkillsDir 'rtk'
     if (Test-Path -LiteralPath $srcRtkDir) {
@@ -963,7 +1078,7 @@ if ($script:installRtk) {
         if (-not (Test-Path -LiteralPath $dstRtkDir) -or $Force) {
             if (Test-Path -LiteralPath $dstRtkDir) { Remove-Item -LiteralPath $dstRtkDir -Recurse -Force }
             New-Item -ItemType Directory -Path (Join-Path $configRoot 'skills/rtk') -Force | Out-Null
-                            Copy-Item -LiteralPath (Join-Path $srcRtkDir 'SKILL.md') -Destination $dstRtkDir -Recurse -Force
+            Copy-Item -LiteralPath (Join-Path $srcRtkDir 'SKILL.md') -Destination $dstRtkDir -Recurse -Force
             Get-ChildItem -LiteralPath $dstRtkDir -Recurse -File | ForEach-Object {
                 try {
                     $c = Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8
