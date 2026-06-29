@@ -556,13 +556,17 @@ function Install-Addon {
     $addon = Get-Content -LiteralPath $addonJsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
     Write-Host "  安装扩展: $($addon.name)" -ForegroundColor Magenta
 
-    # 安装 agents 文件
+    # 安装 agents 文件到扩展子目录 agents/{addon.id}/
     if ($addon.agents) {
+        $addonAgentsDir = Join-Path $ConfigRoot "agents/$($addon.id)"
+        if (-not (Test-Path -LiteralPath $addonAgentsDir)) {
+            New-Item -ItemType Directory -Path $addonAgentsDir -Force | Out-Null
+        }
         foreach ($agentFile in $addon.agents) {
             $srcPath = Join-Path $AddonPath "agents/$agentFile"
             if (Test-Path -LiteralPath $srcPath) {
-                $dstPath = Join-Path $ConfigRoot "agents/$agentFile"
-                $null = Install-File -SourcePath $srcPath -DestinationPath $dstPath -Label "agents/$agentFile"
+                $dstPath = Join-Path $addonAgentsDir $agentFile
+                $null = Install-File -SourcePath $srcPath -DestinationPath $dstPath -Label "agents/$($addon.id)/$agentFile"
             } else {
                 Write-Warn "Addon agents 文件缺失: $agentFile"
             }
